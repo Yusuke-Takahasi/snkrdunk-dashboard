@@ -79,7 +79,7 @@ export function PriceChart({ psa10Data, baseData }: PriceChartProps) {
             tickFormatter={(v) => `¥${(v / 1000).toFixed(0)}k`}
           />
           <Tooltip
-            formatter={(value: number) => [`¥${value?.toLocaleString()}`, '']}
+            formatter={(value: number | undefined) => [`¥${value != null ? value.toLocaleString() : ''}`, '']}
             labelFormatter={(label) => new Date(label).toLocaleDateString('ja-JP')}
           />
           <Legend />
