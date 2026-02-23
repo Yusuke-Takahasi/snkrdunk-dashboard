@@ -1,0 +1,2 @@
+{"sessionId":"7a407f","runId":"post-fix","location":"gemrate/page.tsx:fetch","message":"gemrate_stats/mappings fetch result","data":{"statsListLength":24898,"mappingsLength":268,"hitLimit":true,"hypothesisId":"A"},"timestamp":1771753559571}
+{"sessionId":"7a407f","runId":"post-fix","location":"gemrate/page.tsx:countBySeries","message":"countBySeries ドリームリーグ|2019","data":{"dreamKeysInStats":["MEGAドリームex|2025","ドリームリーグ|2019","幻・伝説ドリームキラコレクション|2016"],"dreamLeagueMappingExists":true,"dreamLeagueCount":75,"hypothesisId":"B"},"timestamp":1771753559575}
