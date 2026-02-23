@@ -290,7 +290,7 @@ export async function getProductsList(
   if (useDbSort) {
     const { data: productsRaw, error: err } = await queryWithFavorite
       .select('*')
-      .order(sort, { ascending: order, nullsFirst: false });
+      .order(sort, { ascending: order === 'asc', nullsFirst: false });
     if (err) {
       error = err;
       console.error('Supabase通信エラー:', err.code, err.message);
