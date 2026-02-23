@@ -123,7 +123,7 @@ export function Sidebar() {
         const v = searchParams.get(k);
         if (v != null && v !== '') cur[k] = v;
       });
-      const next = { ...cur, ...updates };
+      const next: Record<string, string | undefined> = { ...cur, ...updates };
       Object.keys(updates).forEach((k) => {
         const v = updates[k as keyof typeof updates];
         if (v === undefined || v === '') delete next[k];
