@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 const BASIC_USER = process.env.BASIC_AUTH_USER ?? '';
 const BASIC_PASS = process.env.BASIC_AUTH_PASS ?? '';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (!BASIC_USER || !BASIC_PASS) {
     return NextResponse.next();
   }
