@@ -8,6 +8,7 @@ import { matchProductsToGemrateStats } from '../utils/gemrateMatch';
 import type { GemrateStatsRow } from '../utils/gemrateMatch';
 import { isPsa10, isStateA } from '../utils/condition';
 import { resolveTradeDate } from '../utils/tradeDateUtils';
+import { filterPriceOutliers } from '../utils/outlierFilter';
 
 const GRADING_FEE = 3300;
 const LIQUIDITY_DAYS = 30;
@@ -17,13 +18,12 @@ const LIQUIDITY_B = 5;
 
 export const PAGE_SIZE = 25;
 const HISTORIES_PER_PRODUCT = 100;
-const HISTORY_FETCH_PER_PRODUCT_THRESHOLD = 50;
 const HISTORY_SINGLE_QUERY_LIMIT = 18000;
 
 export const SORT_KEYS = [
   { value: 'expectedProfit', label: '予想利益' },
   { value: 'roi', label: 'ROI' },
-  { value: 'latestPsa10', label: 'PSA10相場' },
+  { value: 'latestPsa10', label: 'PSA10 最新' },
   { value: 'psa10Rate', label: 'PSA10取得率' },
   { value: 'release_date', label: '発売日' },
   { value: 'recentTrend', label: '値動き' },
@@ -111,6 +111,47 @@ function sortByTradeDateDesc(list: HistoryRow[]): HistoryRow[] {
   });
 }
 
+/**
+ * trade_histories を 1 クエリで取得し、指定 id 群の履歴を返す。
+ * 結果は scraped_at 降順。computeStatsForIds にそのまま渡せる。
+ */
+async function fetchTradeHistoriesForIds(ids: string[]): Promise<HistoryRow[]> {
+  if (ids.length === 0) return [];
+  const limit = Math.min(
+    ids.length * HISTORIES_PER_PRODUCT,
+    HISTORY_SINGLE_QUERY_LIMIT
+  );
+  const { data } = await supabase
+    .from('trade_histories')
+    .select('product_id, condition, price, trade_date, scraped_at')
+    .in('product_id', ids)
+    .order('scraped_at', { ascending: false })
+    .limit(limit);
+  return (data ?? []) as HistoryRow[];
+}
+
+const GEMRATE_SERIES_CHUNK_SIZE = 100;
+
+/**
+ * gemrate_stats を series_name リストで 1 クエリ（またはチャンクで数クエリ）取得する。
+ */
+async function fetchGemrateStatsBySeriesNames(
+  seriesNames: Set<string>
+): Promise<GemrateStatsRow[]> {
+  const arr = Array.from(seriesNames);
+  if (arr.length === 0) return [];
+  const rows: GemrateStatsRow[] = [];
+  for (let i = 0; i < arr.length; i += GEMRATE_SERIES_CHUNK_SIZE) {
+    const chunk = arr.slice(i, i + GEMRATE_SERIES_CHUNK_SIZE);
+    const { data } = await supabase
+      .from('gemrate_stats')
+      .select('series_name, card_number, card_description, gem_rate')
+      .in('series_name', chunk);
+    rows.push(...((data ?? []) as GemrateStatsRow[]));
+  }
+  return rows;
+}
+
 function computeStatsForIds(
   ids: string[],
   histories: HistoryRow[],
@@ -124,8 +165,10 @@ function computeStatsForIds(
     const base = productHistories.filter((h) => isStateA(h.condition));
     const psa10ByTradeDate = sortByTradeDateDesc(psa10);
     const baseByTradeDate = sortByTradeDateDesc(base);
-    const latestPsa10 = psa10ByTradeDate.length > 0 ? Number(psa10ByTradeDate[0].price) : 0;
-    const latestBase = baseByTradeDate.length > 0 ? Number(baseByTradeDate[0].price) : 0;
+    const psa10Filtered = filterPriceOutliers(psa10ByTradeDate);
+    const baseFiltered = filterPriceOutliers(baseByTradeDate);
+    const latestPsa10 = psa10Filtered.length > 0 ? Number(psa10Filtered[0].price) : 0;
+    const latestBase = baseFiltered.length > 0 ? Number(baseFiltered[0].price) : 0;
     const cost = latestBase + gradingFee;
     const expectedProfit =
       latestPsa10 > 0 && latestBase > 0
@@ -138,11 +181,11 @@ function computeStatsForIds(
     const liquidity = getLiquidityRank(recentCount);
     const psa10Rate: number | null = null;
     let recentTrend: number | null = null;
-    if (psa10ByTradeDate.length >= 2 && psa10ByTradeDate[0].price != null && psa10ByTradeDate[1].price != null) {
-      const prev = Number(psa10ByTradeDate[1].price);
+    if (psa10Filtered.length >= 2 && psa10Filtered[0].price != null && psa10Filtered[1].price != null) {
+      const prev = Number(psa10Filtered[1].price);
       if (prev > 0) {
         recentTrend = Math.round(
-          ((Number(psa10ByTradeDate[0].price) - prev) / prev) * 100
+          ((Number(psa10Filtered[0].price) - prev) / prev) * 100
         );
       }
     }
@@ -305,20 +348,7 @@ export async function getProductsList(
       page * PAGE_SIZE
     );
     const ids = products.map((p) => p.id);
-    const historiesByProduct =
-      ids.length > 0
-        ? await Promise.all(
-            ids.map((productId) =>
-              supabase
-                .from('trade_histories')
-                .select('product_id, condition, price, trade_date, scraped_at')
-                .eq('product_id', productId)
-                .order('scraped_at', { ascending: false })
-                .limit(HISTORIES_PER_PRODUCT)
-            )
-          )
-        : [];
-    const histories = historiesByProduct.flatMap((res) => (res.data ?? [])) as HistoryRow[];
+    const histories = await fetchTradeHistoriesForIds(ids);
     const statsByProduct = computeStatsForIds(
       ids,
       histories,
@@ -334,16 +364,7 @@ export async function getProductsList(
       }
     }
     const gemrateRows: GemrateStatsRow[] =
-      seriesNamesForFetch.size > 0
-        ? (await Promise.all(
-            Array.from(seriesNamesForFetch).map((seriesName) =>
-              supabase
-                .from('gemrate_stats')
-                .select('series_name, card_number, card_description, gem_rate')
-                .eq('series_name', seriesName)
-            )
-          )).flatMap((res) => (res.data ?? []) as GemrateStatsRow[])
-        : [];
+      await fetchGemrateStatsBySeriesNames(seriesNamesForFetch);
     const gemrateByProduct = matchProductsToGemrateStats(
       products.map((p) => ({
         id: p.id,
@@ -374,30 +395,7 @@ export async function getProductsList(
       (p: ProductRow) => p.is_blacklisted !== true
     ) as ProductRow[];
     const ids = products.map((p) => p.id);
-    let histories: HistoryRow[];
-    if (ids.length === 0) {
-      histories = [];
-    } else if (ids.length > HISTORY_FETCH_PER_PRODUCT_THRESHOLD) {
-      const { data: historiesRaw } = await supabase
-        .from('trade_histories')
-        .select('product_id, condition, price, trade_date, scraped_at')
-        .in('product_id', ids)
-        .order('scraped_at', { ascending: false })
-        .limit(HISTORY_SINGLE_QUERY_LIMIT);
-      histories = (historiesRaw ?? []) as HistoryRow[];
-    } else {
-      const historiesByProduct = await Promise.all(
-        ids.map((productId) =>
-          supabase
-            .from('trade_histories')
-            .select('product_id, condition, price, trade_date, scraped_at')
-            .eq('product_id', productId)
-            .order('scraped_at', { ascending: false })
-            .limit(HISTORIES_PER_PRODUCT)
-        )
-      );
-      histories = historiesByProduct.flatMap((res) => (res.data ?? [])) as HistoryRow[];
-    }
+    const histories = await fetchTradeHistoriesForIds(ids);
     const statsByProduct = computeStatsForIds(
       ids,
       histories,
@@ -413,16 +411,7 @@ export async function getProductsList(
       }
     }
     const gemrateRowsElse: GemrateStatsRow[] =
-      seriesNamesForFetchElse.size > 0
-        ? (await Promise.all(
-            Array.from(seriesNamesForFetchElse).map((seriesName) =>
-              supabase
-                .from('gemrate_stats')
-                .select('series_name, card_number, card_description, gem_rate')
-                .eq('series_name', seriesName)
-            )
-          )).flatMap((res) => (res.data ?? []) as GemrateStatsRow[])
-        : [];
+      await fetchGemrateStatsBySeriesNames(seriesNamesForFetchElse);
     const gemrateByProduct = matchProductsToGemrateStats(
       products.map((p) => ({
         id: p.id,
@@ -525,7 +514,30 @@ export async function getProductsList(
     sortStackSafe(fullList, compare);
     totalCount = fullList.length;
     const slice = fullList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-    list = slice.map(({ item, stats }) => toSerializableListItem(item, stats));
+    const pageIds = slice.map(({ item }) => item.id);
+    if (pageIds.length > 0) {
+      const pageHistories = await fetchTradeHistoriesForIds(pageIds);
+      const pageStatsByProduct = computeStatsForIds(
+        pageIds,
+        pageHistories,
+        GRADING_FEE,
+        cutoffMs
+      );
+      for (const [productId, stats] of pageStatsByProduct) {
+        const g = gemrateByProduct.get(productId);
+        stats.psa10Rate = g != null ? Math.round(g.gem_rate) : null;
+      }
+      const pageItemsWithNewStats: ItemWithStats[] = slice.map(({ item }) => ({
+        item,
+        stats: pageStatsByProduct.get(item.id) ?? defaultStats,
+      }));
+      sortStackSafe(pageItemsWithNewStats, compare);
+      list = pageItemsWithNewStats.map(({ item, stats }) =>
+        toSerializableListItem(item, stats)
+      );
+    } else {
+      list = slice.map(({ item, stats }) => toSerializableListItem(item, stats));
+    }
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));

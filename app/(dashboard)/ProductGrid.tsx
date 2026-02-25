@@ -1,17 +1,73 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Heart, EyeOff, ExternalLink } from 'lucide-react';
+import { Heart, EyeOff, ExternalLink, Loader2 } from 'lucide-react';
 import { formatReleaseDate } from '../../utils/formatReleaseDate';
 import type { ListItem } from '../../lib/productsList';
 
 export function ProductGrid({
   items,
   listQueryString,
+  onItemUpdated,
 }: {
   items: ListItem[];
   listQueryString: string;
+  onItemUpdated?: (opts?: { silent?: boolean }) => void;
 }) {
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const patchProduct = useCallback(
+    async (id: string, payload: { is_favorite?: boolean; is_blacklisted?: boolean }) => {
+      const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+    },
+    []
+  );
+
+  const handleFavorite = useCallback(
+    async (e: React.MouseEvent, id: string, current: boolean | null) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (updatingId) return;
+      setUpdatingId(id);
+      try {
+        await patchProduct(id, { is_favorite: !current });
+        onItemUpdated?.({ silent: true });
+      } catch (err) {
+        console.error('お気に入りの更新に失敗しました:', err);
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [patchProduct, onItemUpdated, updatingId]
+  );
+
+  const handleBlacklist = useCallback(
+    async (e: React.MouseEvent, id: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (updatingId) return;
+      setUpdatingId(id);
+      try {
+        await patchProduct(id, { is_blacklisted: true });
+        onItemUpdated?.();
+      } catch (err) {
+        console.error('非表示の設定に失敗しました:', err);
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [patchProduct, onItemUpdated, updatingId]
+  );
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
       {items.map(({ item, stats }) => {
@@ -68,7 +124,13 @@ export function ProductGrid({
                     </dd>
                   </div>
                   <div className="flex justify-between items-baseline gap-2">
-                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">PSA10相場</dt>
+                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">状態A 最新</dt>
+                    <dd className="text-xs font-medium text-slate-700 tabular-nums text-right shrink-0">
+                      {stats.latestBase > 0 ? `¥${stats.latestBase.toLocaleString()}` : '—'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-2">
+                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">PSA10 最新</dt>
                     <dd className="text-xs font-medium text-slate-700 tabular-nums text-right shrink-0">
                       {stats.latestPsa10 > 0 ? `¥${stats.latestPsa10.toLocaleString()}` : '—'}
                     </dd>
@@ -117,14 +179,25 @@ export function ProductGrid({
               <div className="flex gap-0.5 shrink-0">
                 <button
                   type="button"
-                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-                  title="お気に入り"
+                  onClick={(e) => handleFavorite(e, item.id, item.is_favorite ?? false)}
+                  disabled={updatingId === item.id}
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none"
+                  title={item.is_favorite ? 'お気に入りを解除' : 'お気に入り'}
                 >
-                  <Heart size={16} />
+                  {updatingId === item.id ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Heart
+                      size={16}
+                      className={item.is_favorite ? 'fill-red-500 text-red-500' : ''}
+                    />
+                  )}
                 </button>
                 <button
                   type="button"
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  onClick={(e) => handleBlacklist(e, item.id)}
+                  disabled={updatingId === item.id}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none"
                   title="非表示"
                 >
                   <EyeOff size={16} />

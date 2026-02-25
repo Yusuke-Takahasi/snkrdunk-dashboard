@@ -51,8 +51,8 @@ export function ListPageContent() {
   const currentParams = paramsFromSearchParams(searchParams);
   const listQueryString = buildListQueryString(currentParams);
 
-  const fetchList = useCallback(async () => {
-    setLoading(true);
+  const fetchList = useCallback(async (silent?: boolean) => {
+    if (!silent) setLoading(true);
     setFetchError(null);
     try {
       const res = await fetch(`/api/products-list${listQueryString || '?'}`);
@@ -101,10 +101,13 @@ export function ListPageContent() {
       <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">ポケカ・ワンピースカード一覧</h1>
-          <p className="text-slate-500 mt-1">読み込み中...</p>
+          <p className="text-slate-500 mt-1 flex items-center gap-2">
+            <Loader2 size={18} className="animate-spin text-blue-600 shrink-0" aria-hidden />
+            <span className="font-medium text-slate-700">商品一覧と取引履歴を取得しています。しばらくお待ちください。</span>
+          </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({ length: 12 }).map((_, i) => (
             <div
               key={i}
               className="bg-white rounded-lg border border-slate-200 overflow-hidden h-64 animate-pulse"
@@ -158,7 +161,7 @@ export function ListPageContent() {
             {loading && (
               <>
                 <Loader2 size={16} className="animate-spin text-blue-600 shrink-0" aria-hidden />
-                <span className="text-blue-600 font-medium">読み込み中...</span>
+                <span className="text-blue-600 font-medium">表示を更新しています...</span>
               </>
             )}
             {!loading && (
@@ -208,7 +211,11 @@ export function ListPageContent() {
       )}
 
       <div className={loading ? 'opacity-60 pointer-events-none transition-opacity' : ''}>
-        <ProductGrid items={list} listQueryString={listQueryString} />
+        <ProductGrid
+          items={list}
+          listQueryString={listQueryString}
+          onItemUpdated={(opts) => fetchList(opts?.silent)}
+        />
       </div>
 
       <ProductListPagination

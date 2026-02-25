@@ -2,7 +2,6 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   ExternalLink,
-  Heart,
   TrendingUp,
   DollarSign,
   Percent,
@@ -20,12 +19,14 @@ import { buildSeriesName, parseNameJpForGemrate } from '../../../../utils/gemrat
 const GEMRATE_STATS_LIMIT = 10000;
 import { matchProductToGemrateStats } from '../../../../utils/gemrateMatch';
 import type { GemrateStatsRow } from '../../../../utils/gemrateMatch';
+import { FavoriteButton } from './FavoriteButton';
 import { PriceChart } from './PriceChart';
 import { ROISimulator } from './ROISimulator';
 import { CardDescriptionForm } from './CardDescriptionForm';
 import { PackSelectForm } from './PackSelectForm';
 import { resolveTradeDate, formatTradeDate } from './tradeDateUtils';
 import { isPsa10, isStateA } from '../../../../utils/condition';
+import { filterPriceOutliers } from '../../../../utils/outlierFilter';
 
 export const revalidate = 0;
 
@@ -114,10 +115,12 @@ export default async function ProductDetail({
   const baseHistories = historyList.filter((h) => isStateA(h.condition));
   const psa10ByTradeDate = sortByTradeDateDesc(psa10Histories);
   const baseByTradeDate = sortByTradeDateDesc(baseHistories);
+  const psa10Filtered = filterPriceOutliers(psa10ByTradeDate);
+  const baseFiltered = filterPriceOutliers(baseByTradeDate);
   const latestPsa10Price =
-    psa10ByTradeDate.length > 0 ? Number(psa10ByTradeDate[0].price) : 0;
+    psa10Filtered.length > 0 ? Number(psa10Filtered[0].price) : 0;
   const latestBasePrice =
-    baseByTradeDate.length > 0 ? Number(baseByTradeDate[0].price) : 0;
+    baseFiltered.length > 0 ? Number(baseFiltered[0].price) : 0;
 
   const expectedProfit =
     latestPsa10Price > 0 && latestBasePrice > 0
@@ -143,14 +146,14 @@ export default async function ProductDetail({
 
   let recentTrend: number | null = null;
   if (
-    psa10ByTradeDate.length >= 2 &&
-    psa10ByTradeDate[0].price != null &&
-    psa10ByTradeDate[1].price != null
+    psa10Filtered.length >= 2 &&
+    psa10Filtered[0].price != null &&
+    psa10Filtered[1].price != null
   ) {
-    const prev = Number(psa10ByTradeDate[1].price);
+    const prev = Number(psa10Filtered[1].price);
     if (prev > 0) {
       recentTrend = Math.round(
-        ((Number(psa10ByTradeDate[0].price) - prev) / prev) * 100
+        ((Number(psa10Filtered[0].price) - prev) / prev) * 100
       );
     }
   }
@@ -254,12 +257,10 @@ export default async function ProductDetail({
                     <Link2 size={18} /> Gemrateで取得率を確認する
                   </a>
                 )}
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors min-h-[44px] w-full sm:w-auto"
-                >
-                  <Heart size={18} /> お気に入り
-                </button>
+                <FavoriteButton
+                  productId={id}
+                  initialFavorite={(product as { is_favorite?: boolean | null })?.is_favorite ?? false}
+                />
               </div>
             </div>
           </div>
@@ -395,7 +396,7 @@ export default async function ProductDetail({
                     </tr>
                     <tr>
                       <th className="py-3 px-4 font-medium text-slate-600">
-                        PSA10相場
+                        PSA10 最新
                       </th>
                       <td className="py-3 px-4 font-semibold tabular-nums text-blue-700">
                         {latestPsa10Price > 0
@@ -405,7 +406,7 @@ export default async function ProductDetail({
                     </tr>
                     <tr>
                       <th className="py-3 px-4 font-medium text-slate-600">
-                        素体 最新価格
+                        状態A 最新
                       </th>
                       <td className="py-3 px-4 font-semibold tabular-nums text-slate-900">
                         {latestBasePrice > 0
