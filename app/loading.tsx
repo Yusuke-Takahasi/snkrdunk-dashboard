@@ -3,7 +3,7 @@ export default function Loading() {
     const skeletons = Array(8).fill(0);
   
     return (
-      <div className="flex h-screen bg-gray-50 text-gray-800 font-sans p-8">
+      <div className="flex h-screen bg-gray-50 text-gray-800 font-sans p-4 sm:p-6 md:p-8">
         {/* メインコンテンツ領域のスケルトン */}
         <main className="flex-1 w-full max-w-7xl mx-auto">
           
@@ -14,7 +14,7 @@ export default function Loading() {
           </div>
   
           {/* カードグリッドの骨組み */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {skeletons.map((_, index) => (
               <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 h-52 p-5 flex flex-col animate-pulse">
                 

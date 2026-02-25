@@ -98,12 +98,12 @@ export function ListPageContent() {
 
   if (loading && !result) {
     return (
-      <div className="p-6 sm:p-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">ポケカ・ワンピースカード一覧</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">ポケカ・ワンピースカード一覧</h1>
           <p className="text-slate-500 mt-1">読み込み中...</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
@@ -117,7 +117,7 @@ export function ListPageContent() {
 
   if (fetchError) {
     return (
-      <div className="p-6 sm:p-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
           <p className="font-semibold text-red-800">一覧の取得に失敗しました</p>
           <p className="text-sm text-red-700 mt-1">{fetchError}</p>
@@ -130,7 +130,7 @@ export function ListPageContent() {
   const list = result?.list ?? [];
 
   return (
-    <div className="p-6 sm:p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle size={22} className="text-red-600 shrink-0 mt-0.5" />
@@ -151,7 +151,7 @@ export function ListPageContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
             ポケカ・ワンピースカード一覧
           </h1>
           <p className="text-slate-500 mt-1 flex items-center gap-2">

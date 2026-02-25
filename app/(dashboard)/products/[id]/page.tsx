@@ -214,7 +214,7 @@ export default async function ProductDetail({
               <span className="hidden sm:inline">一覧に戻る</span>
             </Link>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3 md:gap-4">
             <div className="shrink-0">
               {product?.image_url ? (
                 <img
@@ -240,7 +240,7 @@ export default async function ProductDetail({
                   href={snkrdunkUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px]"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] w-full sm:w-auto"
                 >
                   <ExternalLink size={18} /> スニダンで見る
                 </a>
@@ -249,14 +249,14 @@ export default async function ProductDetail({
                     href={gemrateUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-colors min-h-[44px]"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-colors min-h-[44px] w-full sm:w-auto"
                   >
                     <Link2 size={18} /> Gemrateで取得率を確認する
                   </a>
                 )}
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors min-h-[44px]"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors min-h-[44px] w-full sm:w-auto"
                 >
                   <Heart size={18} /> お気に入り
                 </button>
@@ -362,11 +362,11 @@ export default async function ProductDetail({
             )}
 
             {/* 商品情報サマリ */}
-            <section>
+            <section className="min-w-0">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                 商品情報
               </h2>
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-0">
                 <table className="w-full text-left text-sm">
                   <tbody className="divide-y divide-slate-100">
                     <tr>
@@ -438,11 +438,11 @@ export default async function ProductDetail({
             </section>
 
             {/* 価格推移チャート */}
-            <section>
+            <section className="min-w-0 overflow-hidden">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                 価格推移
               </h2>
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="bg-white rounded-xl border border-slate-200 p-5 min-w-0 overflow-x-auto">
                 <PriceChart
                   psa10Data={psa10ChartData}
                   baseData={baseChartData}
@@ -451,11 +451,11 @@ export default async function ProductDetail({
             </section>
 
             {/* 過去の販売履歴 */}
-            <section>
+            <section className="min-w-0">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                 過去の販売履歴
               </h2>
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-0">
                 <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
                   <table className="w-full text-left text-sm border-collapse">
                     <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">

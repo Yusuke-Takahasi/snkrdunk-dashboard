@@ -63,7 +63,11 @@ function buildQuery(params: Record<string, string | undefined>): string {
   return q ? `?${q}` : '';
 }
 
-export function Sidebar() {
+export function SidebarContent({
+  onNavigate,
+}: {
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,10 +187,15 @@ export function Sidebar() {
     setTimeout(() => setClearing(false), 800);
   };
 
+  const listHref = (() => {
+    const rt = searchParams.get('returnTo');
+    return rt ? (rt.startsWith('?') ? `/${rt}` : `/?${rt}`) : '/';
+  })();
+
   return (
-    <aside className="w-56 min-h-screen bg-slate-50 border-r border-slate-200 flex flex-col shrink-0">
-      <div className="px-2 pt-2 pb-0 bg-slate-50">
-        <Link href="/" className="block">
+    <>
+      <div className="px-2 pt-2 pb-0 bg-slate-50 flex flex-col">
+        <Link href="/" className="block" onClick={onNavigate}>
           <Image
             src="/logo.png"
             alt="ロゴ"
@@ -198,20 +207,12 @@ export function Sidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 pt-0 px-3 pb-3 space-y-0.5">
+      <nav className="flex-1 pt-0 px-3 pb-3 space-y-0.5 overflow-y-auto min-h-0">
         {isProductPage && (
           <Link
-            href={
-              (() => {
-                const rt = searchParams.get('returnTo');
-                return rt
-                  ? rt.startsWith('?')
-                    ? `/${rt}`
-                    : `/?${rt}`
-                  : '/';
-              })()
-            }
+            href={listHref}
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors min-h-[44px]"
+            onClick={onNavigate}
           >
             <ChevronLeft size={20} className="shrink-0" />
             一覧に戻る
@@ -229,6 +230,7 @@ export function Sidebar() {
                   ? 'bg-blue-100 text-blue-800'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
+              onClick={onNavigate}
             >
               <Icon size={20} className="shrink-0" />
               {label}
@@ -515,6 +517,14 @@ export function Sidebar() {
           {clearing ? '更新中...' : 'キャッシュ削除'}
         </button>
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="w-56 min-h-screen bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 hidden md:flex">
+      <SidebarContent />
     </aside>
   );
 }
