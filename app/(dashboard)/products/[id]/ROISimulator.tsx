@@ -3,30 +3,38 @@
 import { useState, useMemo } from 'react';
 import { Calculator } from 'lucide-react';
 
-const MERCADARI_FEE_RATE = 0.1; // 10%
+const DEFAULT_MERCARI_FEE_PERCENT = 10;
+const DEFAULT_GRADING_FEE = 3300;
 
 type ROISimulatorProps = {
   latestPsa10Price: number;
   latestBasePrice: number;
+  /** メルカリ手数料（%）。未指定時は 10 */
+  mercariFeePercent?: number;
+  /** 鑑定料・送料のデフォルト（円）。未指定時は 3300 */
+  defaultGradingFee?: number;
 };
 
 export function ROISimulator({
   latestPsa10Price,
   latestBasePrice,
+  mercariFeePercent = DEFAULT_MERCARI_FEE_PERCENT,
+  defaultGradingFee = DEFAULT_GRADING_FEE,
 }: ROISimulatorProps) {
   const [purchasePrice, setPurchasePrice] = useState(latestBasePrice || 0);
-  const [gradingShipping, setGradingShipping] = useState(3300);
+  const [gradingShipping, setGradingShipping] = useState(defaultGradingFee);
   const [psa10Rate, setPsa10Rate] = useState(75);
 
+  const sellingFeeRate = mercariFeePercent / 100;
   const { expectedProfit, roi } = useMemo(() => {
     const cost = purchasePrice + gradingShipping;
-    const sellPriceAfterFee = latestPsa10Price * (1 - MERCADARI_FEE_RATE);
+    const sellPriceAfterFee = latestPsa10Price * (1 - sellingFeeRate);
     const expectedSell = sellPriceAfterFee * (psa10Rate / 100);
     const profit = Math.floor(expectedSell - cost);
     const roiPercent =
       cost > 0 ? Math.round((profit / cost) * 100) : 0;
     return { expectedProfit: profit, roi: roiPercent };
-  }, [purchasePrice, gradingShipping, psa10Rate, latestPsa10Price]);
+  }, [purchasePrice, gradingShipping, psa10Rate, latestPsa10Price, sellingFeeRate]);
 
   return (
     <div className="w-full max-w-full bg-white rounded-xl border border-slate-200 p-6 shadow-sm box-border">
@@ -108,7 +116,7 @@ export function ROISimulator({
           type="button"
           onClick={() => {
             setPurchasePrice(latestBasePrice || 0);
-            setGradingShipping(3300);
+            setGradingShipping(defaultGradingFee);
             setPsa10Rate(75);
           }}
           className="w-full mt-4 py-3 px-4 bg-slate-100 text-slate-800 rounded-lg font-semibold hover:bg-slate-200 transition-colors min-h-[44px]"

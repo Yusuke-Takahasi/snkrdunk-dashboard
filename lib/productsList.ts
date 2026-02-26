@@ -9,8 +9,10 @@ import type { GemrateStatsRow } from '../utils/gemrateMatch';
 import { isPsa10, isStateA } from '../utils/condition';
 import { resolveTradeDate } from '../utils/tradeDateUtils';
 import { filterPriceOutliers } from '../utils/outlierFilter';
+import type { FeeSettings } from '../utils/appSettings';
 
-const GRADING_FEE = 3300;
+const DEFAULT_GRADING_FEE = 3300;
+const DEFAULT_SELLING_FEE_RATE = 0.1; // 10%
 const LIQUIDITY_DAYS = 30;
 const LIQUIDITY_S = 20;
 const LIQUIDITY_A = 10;
@@ -75,6 +77,10 @@ export type ProductsListParams = {
   brandPokeca?: boolean;
   brandOnepiece?: boolean;
   favoriteOnly?: boolean;
+  /** 手数料計算に使う販売先。未設定時はメルカリ */
+  salesDestination?: 'mercari' | 'snkrdunk';
+  /** true のとき非表示（is_blacklisted）商品も一覧に含める */
+  includeBlacklisted?: boolean;
   minProfit?: number;
   minRoi?: number;
   minPsa10?: number;
@@ -156,7 +162,8 @@ function computeStatsForIds(
   ids: string[],
   histories: HistoryRow[],
   gradingFee: number,
-  cutoffMs: number
+  cutoffMs: number,
+  sellingFeeRate: number
 ): Map<string, Stats> {
   const statsByProduct = new Map<string, Stats>();
   for (const id of ids) {
@@ -172,7 +179,7 @@ function computeStatsForIds(
     const cost = latestBase + gradingFee;
     const expectedProfit =
       latestPsa10 > 0 && latestBase > 0
-        ? Math.floor(latestPsa10 * 0.9 - latestBase - gradingFee)
+        ? Math.floor(latestPsa10 * (1 - sellingFeeRate) - latestBase - gradingFee)
         : 0;
     const roi = cost > 0 ? Math.round((expectedProfit / cost) * 100) : 0;
     const recentCount = productHistories.filter(
@@ -271,8 +278,13 @@ function sortStackSafe<T>(
   }
 }
 
+export type GetProductsListOptions = {
+  feeSettings?: FeeSettings | null;
+};
+
 export async function getProductsList(
-  params: ProductsListParams
+  params: ProductsListParams,
+  options?: GetProductsListOptions
 ): Promise<ProductsListResult> {
   const {
     sort,
@@ -282,6 +294,8 @@ export async function getProductsList(
     brandPokeca,
     brandOnepiece,
     favoriteOnly,
+    salesDestination,
+    includeBlacklisted,
     minProfit,
     minRoi,
     minPsa10,
@@ -292,6 +306,16 @@ export async function getProductsList(
     maxYear,
     minPsa10Rate,
   } = params;
+
+  const feeSettings = options?.feeSettings ?? null;
+  const gradingFee =
+    feeSettings != null ? feeSettings.psaValue : DEFAULT_GRADING_FEE;
+  const sellingFeeRate =
+    feeSettings != null
+      ? (salesDestination === 'snkrdunk'
+          ? feeSettings.snkrdunkFeePercent / 100
+          : feeSettings.mercariFeePercent / 100)
+      : DEFAULT_SELLING_FEE_RATE;
 
   const now = Date.now();
   const cutoffMs = now - LIQUIDITY_DAYS * 24 * 60 * 60 * 1000;
@@ -340,7 +364,7 @@ export async function getProductsList(
       return { list: [], totalCount: 0, totalPages: 1, error };
     }
     const allProducts = (productsRaw ?? []).filter(
-      (p: ProductRow) => p.is_blacklisted !== true
+      (p: ProductRow) => includeBlacklisted === true || p.is_blacklisted !== true
     ) as ProductRow[];
     totalCount = allProducts.length;
     const products = allProducts.slice(
@@ -352,8 +376,9 @@ export async function getProductsList(
     const statsByProduct = computeStatsForIds(
       ids,
       histories,
-      GRADING_FEE,
-      cutoffMs
+      gradingFee,
+      cutoffMs,
+      sellingFeeRate
     );
     const seriesNamesForFetch = new Set<string>();
     for (const p of products) {
@@ -392,15 +417,16 @@ export async function getProductsList(
       return { list: [], totalCount: 0, totalPages: 1, error };
     }
     const products = (productsRaw ?? []).filter(
-      (p: ProductRow) => p.is_blacklisted !== true
+      (p: ProductRow) => includeBlacklisted === true || p.is_blacklisted !== true
     ) as ProductRow[];
     const ids = products.map((p) => p.id);
     const histories = await fetchTradeHistoriesForIds(ids);
     const statsByProduct = computeStatsForIds(
       ids,
       histories,
-      GRADING_FEE,
-      cutoffMs
+      gradingFee,
+      cutoffMs,
+      sellingFeeRate
     );
     const seriesNamesForFetchElse = new Set<string>();
     for (const p of products) {
@@ -520,8 +546,9 @@ export async function getProductsList(
       const pageStatsByProduct = computeStatsForIds(
         pageIds,
         pageHistories,
-        GRADING_FEE,
-        cutoffMs
+        gradingFee,
+        cutoffMs,
+        sellingFeeRate
       );
       for (const [productId, stats] of pageStatsByProduct) {
         const g = gemrateByProduct.get(productId);
@@ -565,6 +592,13 @@ export function parseListParams(
     brandPokeca: searchParams?.brand_pokeca === '1',
     brandOnepiece: searchParams?.brand_onepiece === '1',
     favoriteOnly: searchParams?.favorite === '1',
+    salesDestination:
+      searchParams?.sales_destination === 'snkrdunk'
+        ? 'snkrdunk'
+        : searchParams?.sales_destination === 'mercari'
+          ? 'mercari'
+          : undefined,
+    includeBlacklisted: searchParams?.include_blacklisted === '1',
     minProfit:
       typeof searchParams?.minProfit === 'string' && searchParams.minProfit !== ''
         ? parseInt(searchParams.minProfit, 10)

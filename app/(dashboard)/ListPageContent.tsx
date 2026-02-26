@@ -1,13 +1,14 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { ProductListControls, ProductListPagination } from './ProductListControls';
 import { ProductGrid } from './ProductGrid';
 import { SORT_KEYS, PAGE_SIZE } from '../../lib/productsList';
 import type { ListItem, ProductsListResult } from '../../lib/productsList';
+import type { ListPreferences } from '../../utils/appSettings';
 
 function buildListQueryString(params: Record<string, string | undefined>): string {
   const sp = new URLSearchParams();
@@ -30,6 +31,8 @@ function paramsFromSearchParams(
     brand_pokeca: get('brand_pokeca'),
     brand_onepiece: get('brand_onepiece'),
     favorite: get('favorite'),
+    sales_destination: get('sales_destination'),
+    include_blacklisted: get('include_blacklisted'),
     minProfit: get('minProfit'),
     minRoi: get('minRoi'),
     minPsa10: get('minPsa10'),
@@ -42,14 +45,56 @@ function paramsFromSearchParams(
   };
 }
 
-export function ListPageContent() {
+type ListPageContentProps = {
+  defaultListPreferences?: ListPreferences | null;
+};
+
+export function ListPageContent({ defaultListPreferences }: ListPageContentProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const appliedDefaultRef = useRef(false);
   const [result, setResult] = useState<ProductsListResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const currentParams = paramsFromSearchParams(searchParams);
   const listQueryString = buildListQueryString(currentParams);
+
+  // クエリに sort/order/favorite/include_blacklisted/sales_destination が無いとき、初期設定でリダイレクト（1回だけ）
+  useEffect(() => {
+    if (appliedDefaultRef.current || !defaultListPreferences) return;
+    const hasExplicit =
+      currentParams.sort != null ||
+      currentParams.order != null ||
+      currentParams.favorite != null ||
+      currentParams.include_blacklisted != null ||
+      currentParams.sales_destination != null;
+    if (hasExplicit) return;
+    appliedDefaultRef.current = true;
+    const defaults: Record<string, string | undefined> = {
+      sort: defaultListPreferences.defaultSort,
+      order: defaultListPreferences.defaultOrder,
+      page: '1',
+      q: currentParams.q,
+      brand_pokeca: currentParams.brand_pokeca,
+      brand_onepiece: currentParams.brand_onepiece,
+    };
+    if (defaultListPreferences.favoriteOnly) defaults.favorite = '1';
+    if (!defaultListPreferences.excludeBlacklisted) defaults.include_blacklisted = '1';
+    const dest = defaultListPreferences.defaultSalesDestination;
+    if (dest) defaults.sales_destination = dest;
+    if (defaultListPreferences.defaultMinProfit != null) defaults.minProfit = String(defaultListPreferences.defaultMinProfit);
+    if (defaultListPreferences.defaultMinRoi != null) defaults.minRoi = String(defaultListPreferences.defaultMinRoi);
+    if (defaultListPreferences.defaultMinPsa10 != null) defaults.minPsa10 = String(defaultListPreferences.defaultMinPsa10);
+    if (defaultListPreferences.defaultMaxPsa10 != null) defaults.maxPsa10 = String(defaultListPreferences.defaultMaxPsa10);
+    if (defaultListPreferences.defaultMinBase != null) defaults.minBase = String(defaultListPreferences.defaultMinBase);
+    if (defaultListPreferences.defaultMaxBase != null) defaults.maxBase = String(defaultListPreferences.defaultMaxBase);
+    if (defaultListPreferences.defaultMinYear != null) defaults.minYear = String(defaultListPreferences.defaultMinYear);
+    if (defaultListPreferences.defaultMaxYear != null) defaults.maxYear = String(defaultListPreferences.defaultMaxYear);
+    if (defaultListPreferences.defaultMinPsa10Rate != null) defaults.minPsa10Rate = String(defaultListPreferences.defaultMinPsa10Rate);
+    const qs = buildListQueryString(defaults);
+    router.replace(qs || '/');
+  }, [defaultListPreferences, currentParams, router]);
 
   const fetchList = useCallback(async (silent?: boolean) => {
     if (!silent) setLoading(true);
@@ -86,6 +131,8 @@ export function ListPageContent() {
     currentParams.brand_pokeca === '1' ||
     currentParams.brand_onepiece === '1' ||
     currentParams.favorite === '1' ||
+    currentParams.sales_destination != null ||
+    currentParams.include_blacklisted === '1' ||
     currentParams.minProfit != null ||
     currentParams.minRoi != null ||
     currentParams.minPsa10 != null ||

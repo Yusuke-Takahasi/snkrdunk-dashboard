@@ -104,6 +104,8 @@ export function SidebarContent({
     brand_pokeca: getParam('brand_pokeca'),
     brand_onepiece: getParam('brand_onepiece'),
     favorite: getParam('favorite'),
+    sales_destination: getParam('sales_destination'),
+    include_blacklisted: getParam('include_blacklisted'),
     minProfit: getParam('minProfit'),
     minRoi: getParam('minRoi'),
     minPsa10: getParam('minPsa10'),
@@ -117,6 +119,7 @@ export function SidebarContent({
 
   const paramKeys = [
     'sort', 'order', 'page', 'q', 'brand_pokeca', 'brand_onepiece', 'favorite',
+    'sales_destination', 'include_blacklisted',
     'minProfit', 'minRoi', 'minPsa10', 'maxPsa10', 'minBase', 'maxBase',
     'minYear', 'maxYear', 'minPsa10Rate',
   ] as const;
@@ -168,6 +171,8 @@ export function SidebarContent({
       brand_pokeca: undefined,
       brand_onepiece: undefined,
       favorite: undefined,
+      sales_destination: undefined,
+      include_blacklisted: undefined,
       minProfit: undefined,
       minRoi: undefined,
       minPsa10: undefined,

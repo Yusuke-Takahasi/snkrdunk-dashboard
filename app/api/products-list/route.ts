@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getProductsList, parseListParams } from '../../../lib/productsList';
+import { getAppSettings, getFeeSettings } from '../../../utils/appSettings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,6 +18,8 @@ function searchParamsToRecord(
 export async function GET(request: NextRequest) {
   const searchParams = searchParamsToRecord(request.nextUrl.searchParams);
   const params = parseListParams(searchParams);
-  const result = await getProductsList(params);
+  const appSettings = await getAppSettings();
+  const feeSettings = getFeeSettings(appSettings);
+  const result = await getProductsList(params, { feeSettings });
   return Response.json(result);
 }

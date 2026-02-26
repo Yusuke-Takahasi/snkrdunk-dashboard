@@ -12,7 +12,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { supabase } from '../../../../utils/supabase';
-import { getAppSettings, getGemrateUrl } from '../../../../utils/appSettings';
+import { getAppSettings, getGemrateUrl, getFeeSettings } from '../../../../utils/appSettings';
 import { formatReleaseDate, parseReleaseDateToYear } from '../../../../utils/formatReleaseDate';
 import { buildSeriesName, parseNameJpForGemrate } from '../../../../utils/gemrateParse';
 
@@ -85,6 +85,7 @@ export default async function ProductDetail({
     supabase.from('gemrate_mappings').select('series_name, gemrate_url'),
   ]);
 
+  const feeSettings = getFeeSettings(appSettings);
   const productNameJp = (product as { name_jp?: string | null })?.name_jp;
   const productReleaseDate = (product as { release_date?: string | null })?.release_date;
   const productGemrateSeriesName = (product as { gemrate_series_name?: string | null })?.gemrate_series_name;
@@ -523,6 +524,8 @@ export default async function ProductDetail({
               <ROISimulator
                 latestPsa10Price={latestPsa10Price}
                 latestBasePrice={latestBasePrice}
+                mercariFeePercent={feeSettings.mercariFeePercent}
+                defaultGradingFee={feeSettings.psaValue}
               />
             </div>
           </div>
