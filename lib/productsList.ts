@@ -120,6 +120,7 @@ function sortByTradeDateDesc(list: HistoryRow[]): HistoryRow[] {
 /**
  * trade_histories を 1 クエリで取得し、指定 id 群の履歴を返す。
  * 結果は scraped_at 降順。computeStatsForIds にそのまま渡せる。
+ * ※表示ページ用には fetchTradeHistoriesPerProduct を使うと各商品に確実に履歴が回る。
  */
 async function fetchTradeHistoriesForIds(ids: string[]): Promise<HistoryRow[]> {
   if (ids.length === 0) return [];
@@ -134,6 +135,26 @@ async function fetchTradeHistoriesForIds(ids: string[]): Promise<HistoryRow[]> {
     .order('scraped_at', { ascending: false })
     .limit(limit);
   return (data ?? []) as HistoryRow[];
+}
+
+/**
+ * 指定 id ごとに最大 HISTORIES_PER_PRODUCT 件ずつ履歴を並列取得する。
+ * 表示ページ用。各商品に確実に履歴が回るため一覧の「—」を防げる。
+ */
+async function fetchTradeHistoriesPerProduct(ids: string[]): Promise<HistoryRow[]> {
+  if (ids.length === 0) return [];
+  const results = await Promise.all(
+    ids.map((productId) =>
+      supabase
+        .from('trade_histories')
+        .select('product_id, condition, price, trade_date, scraped_at')
+        .eq('product_id', productId)
+        .order('scraped_at', { ascending: false })
+        .limit(HISTORIES_PER_PRODUCT)
+        .then(({ data }) => (data ?? []) as HistoryRow[])
+    )
+  );
+  return results.flat();
 }
 
 const GEMRATE_SERIES_CHUNK_SIZE = 100;
@@ -372,7 +393,7 @@ export async function getProductsList(
       page * PAGE_SIZE
     );
     const ids = products.map((p) => p.id);
-    const histories = await fetchTradeHistoriesForIds(ids);
+    const histories = await fetchTradeHistoriesPerProduct(ids);
     const statsByProduct = computeStatsForIds(
       ids,
       histories,
@@ -542,7 +563,7 @@ export async function getProductsList(
     const slice = fullList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     const pageIds = slice.map(({ item }) => item.id);
     if (pageIds.length > 0) {
-      const pageHistories = await fetchTradeHistoriesForIds(pageIds);
+      const pageHistories = await fetchTradeHistoriesPerProduct(pageIds);
       const pageStatsByProduct = computeStatsForIds(
         pageIds,
         pageHistories,
@@ -550,8 +571,28 @@ export async function getProductsList(
         cutoffMs,
         sellingFeeRate
       );
+      // 表示ページの商品だけ gemrate を取得して PSA10取得率を付与（詳細画面と同じく確実に表示）
+      const seriesNamesForPage = new Set<string>();
+      for (const { item: p } of slice) {
+        const s = p.gemrate_series_name?.trim() || buildSeriesName(p.name_jp, p.release_date);
+        if (s) {
+          seriesNamesForPage.add(s);
+          seriesNamesForPage.add(s.replace(/\|/g, '\uFF5C'));
+        }
+      }
+      const pageGemrateRows = await fetchGemrateStatsBySeriesNames(seriesNamesForPage);
+      const pageGemrateByProduct = matchProductsToGemrateStats(
+        slice.map(({ item: p }) => ({
+          id: p.id,
+          name_jp: p.name_jp,
+          release_date: p.release_date,
+          card_description: p.card_description,
+          gemrate_series_name: p.gemrate_series_name,
+        })),
+        pageGemrateRows
+      );
       for (const [productId, stats] of pageStatsByProduct) {
-        const g = gemrateByProduct.get(productId);
+        const g = pageGemrateByProduct.get(productId);
         stats.psa10Rate = g != null ? Math.round(g.gem_rate) : null;
       }
       const pageItemsWithNewStats: ItemWithStats[] = slice.map(({ item }) => ({

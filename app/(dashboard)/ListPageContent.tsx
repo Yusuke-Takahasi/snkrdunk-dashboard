@@ -53,6 +53,7 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
   const router = useRouter();
   const searchParams = useSearchParams();
   const appliedDefaultRef = useRef(false);
+  const prefetchedCacheRef = useRef<Map<string, ProductsListResult>>(new Map());
   const [result, setResult] = useState<ProductsListResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -97,7 +98,14 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
   }, [defaultListPreferences, currentParams, router]);
 
   const fetchList = useCallback(async (silent?: boolean) => {
-    if (!silent) setLoading(true);
+    const cached = prefetchedCacheRef.current.get(listQueryString);
+    if (cached) {
+      setResult(cached);
+      setLoading(false);
+      setFetchError(null);
+    } else if (!silent) {
+      setLoading(true);
+    }
     setFetchError(null);
     try {
       const res = await fetch(`/api/products-list${listQueryString || '?'}`);
@@ -108,6 +116,7 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
       }
       const data: ProductsListResult = await res.json();
       setResult(data);
+      prefetchedCacheRef.current.set(listQueryString, data);
     } catch (e) {
       setResult(null);
       setFetchError(e instanceof Error ? e.message : '取得に失敗しました');
@@ -119,6 +128,24 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  // 1ページ表示後に2ページ目（と3ページ目）をバックグラウンドで先読み
+  useEffect(() => {
+    if (!result || result.totalPages < 2) return;
+    const pageNum = currentParams.page ? parseInt(currentParams.page, 10) : 1;
+    if (Number.isNaN(pageNum) || pageNum !== 1) return;
+    const cache = prefetchedCacheRef.current;
+    for (let p = 2; p <= Math.min(3, result.totalPages); p++) {
+      const qs = buildListQueryString({ ...currentParams, page: String(p) });
+      if (cache.has(qs)) continue;
+      fetch(`/api/products-list${qs || '?'}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: ProductsListResult | null) => {
+          if (data) cache.set(qs, data);
+        })
+        .catch(() => {});
+    }
+  }, [result, currentParams]);
 
   const totalCount = result?.totalCount ?? 0;
   const totalPages = result?.totalPages ?? 1;
@@ -145,7 +172,7 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
 
   if (loading && !result) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 md:p-8 max-w-full mx-auto">
         <div className="mb-8">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">ポケカ・ワンピースカード一覧</h1>
           <p className="text-slate-500 mt-1 flex items-center gap-2">
@@ -167,7 +194,7 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
 
   if (fetchError) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 md:p-8 max-w-full mx-auto">
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
           <p className="font-semibold text-red-800">一覧の取得に失敗しました</p>
           <p className="text-sm text-red-700 mt-1">{fetchError}</p>
@@ -180,7 +207,7 @@ export function ListPageContent({ defaultListPreferences }: ListPageContentProps
   const list = result?.list ?? [];
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 max-w-full mx-auto">
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle size={22} className="text-red-600 shrink-0 mt-0.5" />
