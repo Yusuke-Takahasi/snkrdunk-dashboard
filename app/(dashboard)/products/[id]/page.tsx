@@ -12,7 +12,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { supabase } from '../../../../utils/supabase';
-import { getAppSettings, getGemrateUrl, getFeeSettings } from '../../../../utils/appSettings';
+import { getAppSettings, getGemrateUrl, getFeeSettings, getPsaPlansFromFeeSettings } from '../../../../utils/appSettings';
 import { formatReleaseDate, parseReleaseDateToYear } from '../../../../utils/formatReleaseDate';
 import { buildSeriesName, parseNameJpForGemrate } from '../../../../utils/gemrateParse';
 
@@ -526,6 +526,9 @@ export default async function ProductDetail({
                 latestBasePrice={latestBasePrice}
                 mercariFeePercent={feeSettings.mercariFeePercent}
                 defaultGradingFee={feeSettings.psaValue}
+                psaPlans={getPsaPlansFromFeeSettings(feeSettings)}
+                defaultPlanId="psaValue"
+                defaultPsa10Rate={psa10Rate ?? undefined}
               />
             </div>
           </div>

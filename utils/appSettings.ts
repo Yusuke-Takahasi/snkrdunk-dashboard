@@ -23,6 +23,75 @@ export const DEFAULT_FEE_SETTINGS: FeeSettings = {
   psaExpress: 22980,
 };
 
+/** PSA鑑定プランのキーと表示名（設定画面・シミュレーターで共通利用） */
+export const PSA_PLAN_OPTIONS: { key: keyof FeeSettings; label: string }[] = [
+  { key: 'psaValueBulk', label: 'バリューバルク' },
+  { key: 'psaValue', label: 'バリュー' },
+  { key: 'psaValuePlus', label: 'バリュープラス' },
+  { key: 'psaValueMax', label: 'バリューマックス' },
+  { key: 'psaRegular', label: 'レギュラー' },
+  { key: 'psaExpress', label: 'エクスプレス' },
+];
+
+export type PsaPlanKey = (typeof PSA_PLAN_OPTIONS)[number]['key'];
+
+export type PsaPlanMeta = {
+  /** セレクトボックスなどで併記する短い表記（例: 90営業日） */
+  leadTimeShort: string;
+  /** 設定画面に表示する詳細テキスト（例: 90営業日（日数換算：約126日｜約18週間）） */
+  leadTimeDetail: string;
+  /** 申告価格の上限（そのまま表示用のテキスト） */
+  declaredPrice: string;
+};
+
+export const PSA_PLAN_META: Record<PsaPlanKey, PsaPlanMeta> = {
+  psaValueBulk: {
+    leadTimeShort: '120営業日',
+    leadTimeDetail: '日数換算：約168日｜約24週間',
+    declaredPrice: '¥80,000以下',
+  },
+  psaValue: {
+    leadTimeShort: '90営業日',
+    leadTimeDetail: '日数換算：約126日｜約18週間',
+    declaredPrice: '¥80,000以下',
+  },
+  psaValuePlus: {
+    leadTimeShort: '60営業日',
+    leadTimeDetail: '日数換算：約84日｜約12週間',
+    declaredPrice: '¥80,000以下',
+  },
+  psaValueMax: {
+    leadTimeShort: '40営業日',
+    leadTimeDetail: '日数換算：約56日｜約8週間',
+    declaredPrice: '¥150,000以下',
+  },
+  psaRegular: {
+    leadTimeShort: '30営業日',
+    leadTimeDetail: '日数換算：約42日｜約6週間',
+    declaredPrice: '¥250,000以下',
+  },
+  psaExpress: {
+    leadTimeShort: '25営業日',
+    leadTimeDetail: '日数換算：約35日｜約5週間',
+    declaredPrice: '¥400,000以下',
+  },
+};
+
+export type PsaPlanItem = { id: string; label: string; price: number };
+
+export function getPsaPlansFromFeeSettings(fee: FeeSettings): PsaPlanItem[] {
+  return PSA_PLAN_OPTIONS.map(({ key, label }) => {
+    const planKey = key as PsaPlanKey;
+    const meta = PSA_PLAN_META[planKey];
+    const labelWithLeadTime = meta ? `${label}（${meta.leadTimeShort}）` : label;
+    return {
+      id: key,
+      label: labelWithLeadTime,
+      price: fee[key] as number,
+    };
+  });
+}
+
 export function getFeeSettings(row: AppSettingsRow | null): FeeSettings {
   const raw = row?.fee_settings;
   if (!raw || typeof raw !== 'object') return DEFAULT_FEE_SETTINGS;

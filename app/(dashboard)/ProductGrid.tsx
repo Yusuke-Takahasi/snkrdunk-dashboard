@@ -85,6 +85,8 @@ export function ProductGrid({
               href={`/products/${item.id}${listQueryString ? `?returnTo=${encodeURIComponent(listQueryString)}` : ''}`}
               className="block flex-1 flex flex-col min-w-0"
               prefetch={false}
+              target="_blank"
+              rel="noopener noreferrer"
             >
               <div className="aspect-square w-full bg-slate-100 relative overflow-hidden shrink-0">
                 {item.image_url ? (
@@ -207,6 +209,8 @@ export function ProductGrid({
                 href={`/products/${item.id}${listQueryString ? `?returnTo=${encodeURIComponent(listQueryString)}` : ''}`}
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition-colors min-h-[36px] shrink-0"
                 prefetch={false}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 詳細
                 <ExternalLink size={12} />
