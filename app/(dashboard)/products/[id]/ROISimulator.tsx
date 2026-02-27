@@ -35,8 +35,9 @@ export function ROISimulator({
   defaultPsa10Rate,
 }: ROISimulatorProps) {
   const defaultPlan =
-    psaPlans?.length &&
-    (psaPlans.find((p) => p.id === defaultPlanId) ?? psaPlans[0]);
+    psaPlans && psaPlans.length > 0
+      ? (psaPlans.find((p) => p.id === defaultPlanId) ?? psaPlans[0])
+      : undefined;
   const initialFee = defaultPlan ? defaultPlan.price : defaultGradingFee;
   const initialPlanId = defaultPlan?.id ?? null;
   const initialPsa10Rate = defaultPsa10Rate != null && Number.isFinite(defaultPsa10Rate) ? defaultPsa10Rate : DEFAULT_PSA10_RATE;
