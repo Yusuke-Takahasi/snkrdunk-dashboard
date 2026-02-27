@@ -24,14 +24,14 @@ export const DEFAULT_FEE_SETTINGS: FeeSettings = {
 };
 
 /** PSA鑑定プランのキーと表示名（設定画面・シミュレーターで共通利用） */
-export const PSA_PLAN_OPTIONS: { key: keyof FeeSettings; label: string }[] = [
+export const PSA_PLAN_OPTIONS = [
   { key: 'psaValueBulk', label: 'バリューバルク' },
   { key: 'psaValue', label: 'バリュー' },
   { key: 'psaValuePlus', label: 'バリュープラス' },
   { key: 'psaValueMax', label: 'バリューマックス' },
   { key: 'psaRegular', label: 'レギュラー' },
   { key: 'psaExpress', label: 'エクスプレス' },
-];
+] as const;
 
 export type PsaPlanKey = (typeof PSA_PLAN_OPTIONS)[number]['key'];
 
