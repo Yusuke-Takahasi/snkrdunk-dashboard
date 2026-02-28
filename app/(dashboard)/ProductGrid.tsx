@@ -153,18 +153,34 @@ export function ProductGrid({
                     </dd>
                   </div>
                   <div className="flex justify-between items-baseline gap-2">
-                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">値動き</dt>
+                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">対1ヶ月前</dt>
                     <dd
                       className={`text-xs font-medium tabular-nums text-right shrink-0 ${
-                        stats.recentTrend != null
-                          ? stats.recentTrend >= 0
+                        stats.trend1Month != null
+                          ? stats.trend1Month >= 0
                             ? 'text-emerald-600'
                             : 'text-red-600'
                           : 'text-slate-500'
                       }`}
                     >
-                      {stats.recentTrend != null
-                        ? `${stats.recentTrend >= 0 ? '+' : ''}${stats.recentTrend}%`
+                      {stats.trend1Month != null
+                        ? `${stats.trend1Month >= 0 ? '+' : ''}${stats.trend1Month}%`
+                        : '—'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-2">
+                    <dt className="text-[10px] text-slate-500 shrink-0 whitespace-nowrap">対3ヶ月前</dt>
+                    <dd
+                      className={`text-xs font-medium tabular-nums text-right shrink-0 ${
+                        stats.trend3Months != null
+                          ? stats.trend3Months >= 0
+                            ? 'text-emerald-600'
+                            : 'text-red-600'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {stats.trend3Months != null
+                        ? `${stats.trend3Months >= 0 ? '+' : ''}${stats.trend3Months}%`
                         : '—'}
                     </dd>
                   </div>

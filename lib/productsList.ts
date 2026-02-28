@@ -66,7 +66,10 @@ export type Stats = {
   latestPsa10: number;
   latestBase: number;
   psa10Rate: number | null;
-  recentTrend: number | null;
+  /** 対 約1ヶ月前の変化率（%） */
+  trend1Month: number | null;
+  /** 対 約3ヶ月前の変化率（%） */
+  trend3Months: number | null;
 };
 
 export type ProductsListParams = {
@@ -115,6 +118,19 @@ function sortByTradeDateDesc(list: HistoryRow[]): HistoryRow[] {
     const tb = resolveTradeDate(b.trade_date, b.scraped_at)?.getTime() ?? 0;
     return tb - ta;
   });
+}
+
+/** 基準日以前の直近の取引価格を取得（対1ヶ月前・対3ヶ月前用）。list は取引日降順であること */
+function findPriceAtOrBefore(
+  list: HistoryRow[],
+  cutoffMs: number
+): number | null {
+  for (const row of list) {
+    const d = resolveTradeDate(row.trade_date, row.scraped_at);
+    if (d == null || row.price == null) continue;
+    if (d.getTime() <= cutoffMs) return Number(row.price);
+  }
+  return null;
 }
 
 /**
@@ -208,14 +224,22 @@ function computeStatsForIds(
     ).length;
     const liquidity = getLiquidityRank(recentCount);
     const psa10Rate: number | null = null;
-    let recentTrend: number | null = null;
-    if (psa10Filtered.length >= 2 && psa10Filtered[0].price != null && psa10Filtered[1].price != null) {
-      const prev = Number(psa10Filtered[1].price);
-      if (prev > 0) {
-        recentTrend = Math.round(
-          ((Number(psa10Filtered[0].price) - prev) / prev) * 100
-        );
-      }
+    const nowMs = Date.now();
+    const cutoff1M = nowMs - 30 * 24 * 60 * 60 * 1000;
+    const cutoff3M = nowMs - 90 * 24 * 60 * 60 * 1000;
+    const priceAt1M = findPriceAtOrBefore(psa10Filtered, cutoff1M);
+    const priceAt3M = findPriceAtOrBefore(psa10Filtered, cutoff3M);
+    let trend1Month: number | null = null;
+    let trend3Months: number | null = null;
+    if (latestPsa10 > 0 && priceAt1M != null && priceAt1M > 0) {
+      trend1Month = Math.round(
+        ((latestPsa10 - priceAt1M) / priceAt1M) * 100
+      );
+    }
+    if (latestPsa10 > 0 && priceAt3M != null && priceAt3M > 0) {
+      trend3Months = Math.round(
+        ((latestPsa10 - priceAt3M) / priceAt3M) * 100
+      );
     }
     statsByProduct.set(id, {
       expectedProfit,
@@ -224,7 +248,8 @@ function computeStatsForIds(
       latestPsa10,
       latestBase,
       psa10Rate,
-      recentTrend,
+      trend1Month,
+      trend3Months,
     });
   }
   return statsByProduct;
@@ -237,7 +262,8 @@ const defaultStats: Stats = {
   latestPsa10: 0,
   latestBase: 0,
   psa10Rate: null,
-  recentTrend: null,
+  trend1Month: null,
+  trend3Months: null,
 };
 
 function toSerializableListItem(
@@ -266,7 +292,8 @@ function toSerializableListItem(
       latestPsa10: stats.latestPsa10,
       latestBase: stats.latestBase,
       psa10Rate: stats.psa10Rate,
-      recentTrend: stats.recentTrend,
+      trend1Month: stats.trend1Month,
+      trend3Months: stats.trend3Months,
     },
   };
 }
@@ -538,8 +565,8 @@ export async function getProductsList(
           vb = parseReleaseDateToTime(b.item.release_date);
           break;
         case 'recentTrend':
-          va = a.stats.recentTrend ?? -Infinity;
-          vb = b.stats.recentTrend ?? -Infinity;
+          va = a.stats.trend1Month ?? -Infinity;
+          vb = b.stats.trend1Month ?? -Infinity;
           break;
         case 'psa10Rate':
           va = a.stats.psa10Rate ?? -Infinity;

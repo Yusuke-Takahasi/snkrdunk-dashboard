@@ -172,20 +172,6 @@ export default async function ProductDetail({
   const psa10Count = gemMatch?.psa10_count ?? null;
   const totalGraded = gemMatch?.total_graded ?? null;
 
-  let recentTrend: number | null = null;
-  if (
-    psa10Filtered.length >= 2 &&
-    psa10Filtered[0].price != null &&
-    psa10Filtered[1].price != null
-  ) {
-    const prev = Number(psa10Filtered[1].price);
-    if (prev > 0) {
-      recentTrend = Math.round(
-        ((Number(psa10Filtered[0].price) - prev) / prev) * 100
-      );
-    }
-  }
-
   /** 基準日以前の直近の取引価格を取得（対1ヶ月前・対3ヶ月前用） */
   const nowMs = Date.now();
   const cutoff1M = nowMs - 30 * 24 * 60 * 60 * 1000;
@@ -215,8 +201,7 @@ export default async function ProductDetail({
       ((latestPsa10Price - priceAt3M) / priceAt3M) * 100
     );
   }
-  const hasAnyTrend =
-    recentTrend != null || trend1Month != null || trend3Months != null;
+  const hasAnyTrend = trend1Month != null || trend3Months != null;
 
   const toChartData = (list: TradeHistoryRow[]) => {
     return [...list]
@@ -241,7 +226,9 @@ export default async function ProductDetail({
   const { packName } = parseNameJpForGemrate(product?.name_jp);
   const namePartBeforeBracket = (product?.name_jp ?? '').split('[')[0].trim();
   const mercariKeyword = packName ? `${namePartBeforeBracket} ${packName}`.trim() : namePartBeforeBracket;
-  const mercariSearchUrl = 'https://jp.mercari.com/search?keyword=' + encodeURIComponent(mercariKeyword);
+  const mercariSearchUrl =
+    'https://jp.mercari.com/search?keyword=' + encodeURIComponent(mercariKeyword) +
+    '&status=on_sale&sort=price&order=asc';
   const productCode = (product as { product_code?: string | null })?.product_code;
   const mappingsBySeries = new Map<string, string>();
   for (const row of gemrateMappingsRows ?? []) {
@@ -439,22 +426,7 @@ export default async function ProductDetail({
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                   値動き（PSA10）
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {recentTrend != null && (
-                    <div className="bg-white rounded-xl border border-slate-200 p-5">
-                      <p
-                        className={`text-2xl font-bold tabular-nums ${
-                          recentTrend >= 0 ? 'text-emerald-600' : 'text-red-600'
-                        }`}
-                      >
-                        {recentTrend >= 0 ? '+' : ''}
-                        {recentTrend}%
-                      </p>
-                      <p className="text-sm text-slate-500 mt-1">
-                        直近2件の比較
-                      </p>
-                    </div>
-                  )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {trend1Month != null && (
                     <div className="bg-white rounded-xl border border-slate-200 p-5">
                       <p
