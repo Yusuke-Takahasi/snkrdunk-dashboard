@@ -5,7 +5,7 @@ import { FeeSettingsForm } from './FeeSettingsForm';
 import { ListPreferencesForm } from './ListPreferencesForm';
 
 export const metadata = {
-  title: '設定 | スニダン監視Dashboard',
+  title: '設定',
   description: '一覧表示の初期設定',
 };
 

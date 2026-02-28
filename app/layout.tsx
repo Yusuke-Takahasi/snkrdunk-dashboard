@@ -13,7 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "スニダン監視 Dashboard",
+  title: {
+    default: 'Minty',
+    template: '%s - Minty',
+  },
   description: "スニダン商品の期待値・ROI・価格推移を監視するダッシュボード",
 };
 

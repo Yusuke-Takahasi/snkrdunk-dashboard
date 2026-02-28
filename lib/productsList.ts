@@ -429,9 +429,9 @@ export async function getProductsList(
       toSerializableListItem(item, statsByProduct.get(item.id) ?? defaultStats)
     );
   } else {
-    const { data: productsRaw, error: err } = await queryWithFavorite.select(
-      '*'
-    );
+    const { data: productsRaw, error: err } = await queryWithFavorite
+      .select('*')
+      .order('id', { ascending: true });
     if (err) {
       error = err;
       console.error('Supabase通信エラー:', err.code, err.message);
@@ -552,11 +552,15 @@ export async function getProductsList(
           break;
       }
       if (typeof va === 'number' && typeof vb === 'number') {
-        return order === 'asc' ? va - vb : vb - va;
+        const numCmp = order === 'asc' ? va - vb : vb - va;
+        if (numCmp !== 0) return numCmp;
+        return a.item.id.localeCompare(b.item.id);
       }
       const sa = String(va);
       const sb = String(vb);
-      return order === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
+      const strCmp = order === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
+      if (strCmp !== 0) return strCmp;
+      return a.item.id.localeCompare(b.item.id);
     };
     sortStackSafe(fullList, compare);
     totalCount = fullList.length;

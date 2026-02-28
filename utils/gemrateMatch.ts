@@ -20,10 +20,12 @@ export type ProductForGemrate = {
   gemrate_series_name?: string | null;
 };
 
-/** 照合結果: gem_rate と series_name（Gemrate ボタンURL用） */
+/** 照合結果: gem_rate と series_name（Gemrate ボタンURL用）、PSA提出数・取得数 */
 export type GemrateMatchResult = {
   gem_rate: number;
   series_name: string;
+  psa10_count?: number | null;
+  total_graded?: number | null;
 };
 
 /** series_name の表記ゆれを正規化（全角パイプ ｜ → 半角 |） */
@@ -65,6 +67,8 @@ export function matchProductToGemrateStats(
       return {
         gem_rate: Number(match.gem_rate),
         series_name: (match.series_name ?? '').trim(),
+        psa10_count: match.psa10_count ?? null,
+        total_graded: match.total_graded ?? null,
       };
     }
   }
@@ -79,6 +83,8 @@ export function matchProductToGemrateStats(
       return {
         gem_rate: Number(match.gem_rate),
         series_name: (match.series_name ?? '').trim(),
+        psa10_count: match.psa10_count ?? null,
+        total_graded: match.total_graded ?? null,
       };
     }
   }

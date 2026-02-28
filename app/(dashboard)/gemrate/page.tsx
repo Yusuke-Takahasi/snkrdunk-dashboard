@@ -4,6 +4,10 @@ import { Link2, Table, ExternalLink } from 'lucide-react';
 import { ManualLinkRow } from './ManualLinkRow';
 import { AddMappingForm } from './AddMappingForm';
 
+export const metadata = {
+  title: 'GemRate紐付け',
+};
+
 export const revalidate = 0;
 
 type GemrateMappingRow = {

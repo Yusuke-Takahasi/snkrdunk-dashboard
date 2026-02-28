@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import type { Metadata } from 'next';
 import {
   ArrowLeft,
   ExternalLink,
@@ -9,7 +11,6 @@ import {
   Activity,
   BarChart3,
   Package,
-  Link2,
 } from 'lucide-react';
 import { supabase } from '../../../../utils/supabase';
 import { getAppSettings, getGemrateUrl, getFeeSettings, getPsaPlansFromFeeSettings } from '../../../../utils/appSettings';
@@ -50,6 +51,30 @@ type TradeHistoryRow = {
   trade_date?: string | null;
   scraped_at?: string | null;
 };
+
+type ProductForMetadata = {
+  id?: string;
+  name_jp?: string | null;
+  card_description?: string | null;
+  product_code?: string | null;
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { data: product } = await supabase
+    .from('products')
+    .select('id, name_jp, card_description, product_code')
+    .eq('id', id)
+    .single();
+  const p = product as ProductForMetadata | null;
+  const title =
+    p?.name_jp ?? p?.card_description ?? p?.product_code ?? p?.id ?? '商品詳細';
+  return { title };
+}
 
 export default async function ProductDetail({
   params,
@@ -102,11 +127,11 @@ export default async function ProductDetail({
     seriesNameVariants.length > 0
       ? await supabase
           .from('gemrate_stats')
-          .select('series_name, card_number, card_description, gem_rate')
+          .select('series_name, card_number, card_description, gem_rate, psa10_count, total_graded')
           .in('series_name', seriesNameVariants)
       : await supabase
           .from('gemrate_stats')
-          .select('series_name, card_number, card_description, gem_rate')
+          .select('series_name, card_number, card_description, gem_rate, psa10_count, total_graded')
           .limit(GEMRATE_STATS_LIMIT);
 
   if (historiesError) console.error('履歴取得エラー:', historiesError);
@@ -144,6 +169,8 @@ export default async function ProductDetail({
     : null;
   const gemMatch = productForMatch ? matchProductToGemrateStats(productForMatch, gemrateStats) : null;
   const psa10Rate = gemMatch != null ? Math.round(gemMatch.gem_rate) : null;
+  const psa10Count = gemMatch?.psa10_count ?? null;
+  const totalGraded = gemMatch?.total_graded ?? null;
 
   let recentTrend: number | null = null;
   if (
@@ -158,6 +185,38 @@ export default async function ProductDetail({
       );
     }
   }
+
+  /** 基準日以前の直近の取引価格を取得（対1ヶ月前・対3ヶ月前用） */
+  const nowMs = Date.now();
+  const cutoff1M = nowMs - 30 * 24 * 60 * 60 * 1000;
+  const cutoff3M = nowMs - 90 * 24 * 60 * 60 * 1000;
+  function findPriceAtOrBefore(
+    list: typeof psa10Filtered,
+    cutoffMs: number
+  ): number | null {
+    for (const row of list) {
+      const d = resolveTradeDate(row.trade_date, row.scraped_at);
+      if (d == null || row.price == null) continue;
+      if (d.getTime() <= cutoffMs) return Number(row.price);
+    }
+    return null;
+  }
+  const priceAt1M = findPriceAtOrBefore(psa10Filtered, cutoff1M);
+  const priceAt3M = findPriceAtOrBefore(psa10Filtered, cutoff3M);
+  let trend1Month: number | null = null;
+  let trend3Months: number | null = null;
+  if (latestPsa10Price > 0 && priceAt1M != null && priceAt1M > 0) {
+    trend1Month = Math.round(
+      ((latestPsa10Price - priceAt1M) / priceAt1M) * 100
+    );
+  }
+  if (latestPsa10Price > 0 && priceAt3M != null && priceAt3M > 0) {
+    trend3Months = Math.round(
+      ((latestPsa10Price - priceAt3M) / priceAt3M) * 100
+    );
+  }
+  const hasAnyTrend =
+    recentTrend != null || trend1Month != null || trend3Months != null;
 
   const toChartData = (list: TradeHistoryRow[]) => {
     return [...list]
@@ -179,6 +238,10 @@ export default async function ProductDetail({
   const baseChartData = toChartData(baseHistories);
 
   const snkrdunkUrl = `https://snkrdunk.com/apparels/${id}?slide=right`;
+  const { packName } = parseNameJpForGemrate(product?.name_jp);
+  const namePartBeforeBracket = (product?.name_jp ?? '').split('[')[0].trim();
+  const mercariKeyword = packName ? `${namePartBeforeBracket} ${packName}`.trim() : namePartBeforeBracket;
+  const mercariSearchUrl = 'https://jp.mercari.com/search?keyword=' + encodeURIComponent(mercariKeyword);
   const productCode = (product as { product_code?: string | null })?.product_code;
   const mappingsBySeries = new Map<string, string>();
   for (const row of gemrateMappingsRows ?? []) {
@@ -200,8 +263,6 @@ export default async function ProductDetail({
     const db = resolveTradeDate(b.trade_date, b.scraped_at)?.getTime() ?? 0;
     return db - da;
   });
-
-  const { packName } = parseNameJpForGemrate(product?.name_jp);
 
   return (
     <div className="min-h-screen w-full bg-slate-50 pb-12">
@@ -244,18 +305,29 @@ export default async function ProductDetail({
                   href={snkrdunkUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-white text-slate-900 text-sm font-medium rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors min-h-[44px] w-full sm:w-auto"
                 >
-                  <ExternalLink size={18} /> スニダンで見る
+                  <Image src="/snkrdunk-icon.png" alt="" width={20} height={20} className="shrink-0" />
+                  スニダンで見る
+                </a>
+                <a
+                  href={mercariSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-white text-slate-900 text-sm font-medium rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors min-h-[44px] w-full sm:w-auto"
+                >
+                  <Image src="/mercari-icon-2.png" alt="" width={26} height={26} className="shrink-0" />
+                  メルカリで探す
                 </a>
                 {gemrateUrl && (
                   <a
                     href={gemrateUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-colors min-h-[44px] w-full sm:w-auto"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 bg-white text-slate-900 text-sm font-medium rounded-lg hover:bg-slate-100 border border-slate-200 transition-colors min-h-[44px] w-full sm:w-auto"
                   >
-                    <Link2 size={18} /> Gemrateで取得率を確認する
+                    <Image src="/gemrate-icon-2.png" alt="" width={26} height={26} className="shrink-0" />
+                    Gemrateで取得率を確認する
                   </a>
                 )}
                 <FavoriteButton
@@ -277,7 +349,7 @@ export default async function ProductDetail({
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                 サマリ
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl border border-slate-200 p-5 text-center">
                   <p className="text-2xl font-bold text-slate-900 tabular-nums">
                     {historyList.length}
@@ -315,6 +387,26 @@ export default async function ProductDetail({
                     )}
                   </p>
                 </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-5 text-center">
+                  <p className="text-2xl font-bold tabular-nums">
+                    {totalGraded != null ? (
+                      <span className="text-slate-900">{Number(totalGraded).toLocaleString()}</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">PSA提出数</p>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-5 text-center">
+                  <p className="text-2xl font-bold tabular-nums">
+                    {psa10Count != null ? (
+                      <span className="text-slate-900">{Number(psa10Count).toLocaleString()}</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">PSA取得数</p>
+                </div>
               </div>
             </section>
 
@@ -341,24 +433,58 @@ export default async function ProductDetail({
               />
             </section>
 
-            {/* 直近の値動き */}
-            {recentTrend != null && (
+            {/* 直近の値動き・対1ヶ月前・対3ヶ月前 */}
+            {hasAnyTrend && (
               <section>
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
-                  直近の値動き
+                  値動き（PSA10）
                 </h2>
-                <div className="bg-white rounded-xl border border-slate-200 p-5">
-                  <p
-                    className={`text-3xl font-bold tabular-nums ${
-                      recentTrend >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    }`}
-                  >
-                    {recentTrend >= 0 ? '+' : ''}
-                    {recentTrend}%
-                  </p>
-                  <p className="text-sm text-slate-500 mt-1">
-                    PSA10 直近2件の価格比較
-                  </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {recentTrend != null && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                      <p
+                        className={`text-2xl font-bold tabular-nums ${
+                          recentTrend >= 0 ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                      >
+                        {recentTrend >= 0 ? '+' : ''}
+                        {recentTrend}%
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        直近2件の比較
+                      </p>
+                    </div>
+                  )}
+                  {trend1Month != null && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                      <p
+                        className={`text-2xl font-bold tabular-nums ${
+                          trend1Month >= 0 ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                      >
+                        {trend1Month >= 0 ? '+' : ''}
+                        {trend1Month}%
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        対 約1ヶ月前
+                      </p>
+                    </div>
+                  )}
+                  {trend3Months != null && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                      <p
+                        className={`text-2xl font-bold tabular-nums ${
+                          trend3Months >= 0 ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                      >
+                        {trend3Months >= 0 ? '+' : ''}
+                        {trend3Months}%
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        対 約3ヶ月前
+                      </p>
+                    </div>
+                  )}
                 </div>
               </section>
             )}
