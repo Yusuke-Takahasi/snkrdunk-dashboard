@@ -257,7 +257,7 @@ export function SidebarContent({
                 />
               )}
             </div>
-            <div className="space-y-3 px-2 pt-2 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-3 px-2 pt-2">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">
                   商品名で検索
