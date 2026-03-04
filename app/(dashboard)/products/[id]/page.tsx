@@ -362,7 +362,7 @@ export default async function ProductDetail({
                 <div className="bg-white rounded-xl border border-slate-200 p-5 text-center">
                   <p className="text-2xl font-bold tabular-nums" title={psa10Rate != null ? undefined : 'Gemrateに未紐付け'}>
                     {psa10Rate != null ? (
-                      <span className="text-slate-900">{psa10Rate}%</span>
+                      <span className={psa10Rate >= 80 ? 'text-emerald-600' : 'text-slate-900'}>{psa10Rate}%</span>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}

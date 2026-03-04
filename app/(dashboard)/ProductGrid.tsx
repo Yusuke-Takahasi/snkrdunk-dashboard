@@ -146,7 +146,9 @@ export function ProductGrid({
                       title={stats.psa10Rate != null ? undefined : 'Gemrateに未紐付け'}
                     >
                       {stats.psa10Rate != null ? (
-                        <span className="text-slate-700">{stats.psa10Rate}%</span>
+                        <span className={stats.psa10Rate >= 80 ? 'text-emerald-600 font-semibold' : 'text-slate-700'}>
+                          {stats.psa10Rate}%
+                        </span>
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}

@@ -43,6 +43,7 @@ export function ROISimulator({
   const initialPsa10Rate = defaultPsa10Rate != null && Number.isFinite(defaultPsa10Rate) ? defaultPsa10Rate : DEFAULT_PSA10_RATE;
 
   const [purchasePrice, setPurchasePrice] = useState(latestBasePrice || 0);
+  const [psa10SellPrice, setPsa10SellPrice] = useState(latestPsa10Price || 0);
   const [gradingShipping, setGradingShipping] = useState(initialFee);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(initialPlanId);
   const [psa10Rate, setPsa10Rate] = useState(initialPsa10Rate);
@@ -50,13 +51,13 @@ export function ROISimulator({
   const sellingFeeRate = mercariFeePercent / 100;
   const { expectedProfit, roi } = useMemo(() => {
     const cost = purchasePrice + gradingShipping;
-    const sellPriceAfterFee = latestPsa10Price * (1 - sellingFeeRate);
+    const sellPriceAfterFee = psa10SellPrice * (1 - sellingFeeRate);
     const expectedSell = sellPriceAfterFee * (psa10Rate / 100);
     const profit = Math.floor(expectedSell - cost);
     const roiPercent =
       cost > 0 ? Math.round((profit / cost) * 100) : 0;
     return { expectedProfit: profit, roi: roiPercent };
-  }, [purchasePrice, gradingShipping, psa10Rate, latestPsa10Price, sellingFeeRate]);
+  }, [purchasePrice, psa10SellPrice, gradingShipping, psa10Rate, sellingFeeRate]);
 
   return (
     <div className="w-full max-w-full bg-white rounded-xl border border-slate-200 p-6 shadow-sm box-border">
@@ -73,6 +74,17 @@ export function ROISimulator({
             type="number"
             value={purchasePrice || ''}
             onChange={(e) => setPurchasePrice(Number(e.target.value) || 0)}
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right text-base font-mono tabular-nums"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            PSA10販売価格（円）
+          </label>
+          <input
+            type="number"
+            value={psa10SellPrice || ''}
+            onChange={(e) => setPsa10SellPrice(Number(e.target.value) || 0)}
             className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right text-base font-mono tabular-nums"
           />
         </div>
@@ -163,6 +175,7 @@ export function ROISimulator({
           type="button"
           onClick={() => {
             setPurchasePrice(latestBasePrice || 0);
+            setPsa10SellPrice(latestPsa10Price || 0);
             if (defaultPlan) {
               setSelectedPlanId(defaultPlan.id);
               setGradingShipping(defaultPlan.price);
