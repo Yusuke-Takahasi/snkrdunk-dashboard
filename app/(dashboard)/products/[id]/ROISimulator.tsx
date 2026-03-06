@@ -4,35 +4,36 @@ import { useState, useMemo } from 'react';
 import { Calculator } from 'lucide-react';
 
 const DEFAULT_MERCARI_FEE_PERCENT = 10;
+const DEFAULT_SNKRDUNK_FEE_PERCENT = 8;
 const DEFAULT_GRADING_FEE = 3300;
 
 export type PsaPlanItem = { id: string; label: string; price: number };
+
+type SellingDestination = 'mercari' | 'snkrdunk';
 
 type ROISimulatorProps = {
   latestPsa10Price: number;
   latestBasePrice: number;
   /** メルカリ手数料（%）。未指定時は 10 */
   mercariFeePercent?: number;
+  /** スニダン手数料（%）。未指定時は 8 */
+  snkrdunkFeePercent?: number;
   /** 鑑定費のデフォルト（円）。psaPlans 未指定時やフォールバック用 */
   defaultGradingFee?: number;
   /** 設定画面のPSA鑑定料金から生成したプラン一覧。指定時はプルダウンで選択可能 */
   psaPlans?: PsaPlanItem[];
   /** 初期選択するプラン id。未指定時は psaPlans[0] */
   defaultPlanId?: string;
-  /** PSA10取得率（%）の初期値。詳細画面のGemrate鑑定データと揃える場合に指定。未指定時は 75 */
-  defaultPsa10Rate?: number | null;
 };
-
-const DEFAULT_PSA10_RATE = 75;
 
 export function ROISimulator({
   latestPsa10Price,
   latestBasePrice,
   mercariFeePercent = DEFAULT_MERCARI_FEE_PERCENT,
+  snkrdunkFeePercent = DEFAULT_SNKRDUNK_FEE_PERCENT,
   defaultGradingFee = DEFAULT_GRADING_FEE,
   psaPlans,
   defaultPlanId,
-  defaultPsa10Rate,
 }: ROISimulatorProps) {
   const defaultPlan =
     psaPlans && psaPlans.length > 0
@@ -40,24 +41,25 @@ export function ROISimulator({
       : undefined;
   const initialFee = defaultPlan ? defaultPlan.price : defaultGradingFee;
   const initialPlanId = defaultPlan?.id ?? null;
-  const initialPsa10Rate = defaultPsa10Rate != null && Number.isFinite(defaultPsa10Rate) ? defaultPsa10Rate : DEFAULT_PSA10_RATE;
 
   const [purchasePrice, setPurchasePrice] = useState(latestBasePrice || 0);
   const [psa10SellPrice, setPsa10SellPrice] = useState(latestPsa10Price || 0);
+  const [sellingDestination, setSellingDestination] = useState<SellingDestination>('snkrdunk');
   const [gradingShipping, setGradingShipping] = useState(initialFee);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(initialPlanId);
-  const [psa10Rate, setPsa10Rate] = useState(initialPsa10Rate);
 
-  const sellingFeeRate = mercariFeePercent / 100;
+  const sellingFeeRate =
+    sellingDestination === 'mercari'
+      ? mercariFeePercent / 100
+      : snkrdunkFeePercent / 100;
   const { expectedProfit, roi } = useMemo(() => {
     const cost = purchasePrice + gradingShipping;
     const sellPriceAfterFee = psa10SellPrice * (1 - sellingFeeRate);
-    const expectedSell = sellPriceAfterFee * (psa10Rate / 100);
-    const profit = Math.floor(expectedSell - cost);
+    const profit = Math.floor(sellPriceAfterFee - cost);
     const roiPercent =
       cost > 0 ? Math.round((profit / cost) * 100) : 0;
     return { expectedProfit: profit, roi: roiPercent };
-  }, [purchasePrice, psa10SellPrice, gradingShipping, psa10Rate, sellingFeeRate]);
+  }, [purchasePrice, psa10SellPrice, gradingShipping, sellingFeeRate]);
 
   return (
     <div className="w-full max-w-full bg-white rounded-xl border border-slate-200 p-6 shadow-sm box-border">
@@ -87,6 +89,21 @@ export function ROISimulator({
             onChange={(e) => setPsa10SellPrice(Number(e.target.value) || 0)}
             className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right text-base font-mono tabular-nums"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            販売先
+          </label>
+          <select
+            value={sellingDestination}
+            onChange={(e) =>
+              setSellingDestination(e.target.value as SellingDestination)
+            }
+            className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-base"
+          >
+            <option value="snkrdunk">スニダン（{snkrdunkFeePercent}%）</option>
+            <option value="mercari">メルカリ（{mercariFeePercent}%）</option>
+          </select>
         </div>
         <div>
           {psaPlans && psaPlans.length > 0 && (
@@ -121,19 +138,6 @@ export function ROISimulator({
             type="number"
             value={gradingShipping || ''}
             onChange={(e) => setGradingShipping(Number(e.target.value) || 0)}
-            className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right text-base font-mono tabular-nums"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            PSA10 取得率（%）
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={psa10Rate || ''}
-            onChange={(e) => setPsa10Rate(Number(e.target.value) || 0)}
             className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right text-base font-mono tabular-nums"
           />
         </div>
@@ -176,13 +180,13 @@ export function ROISimulator({
           onClick={() => {
             setPurchasePrice(latestBasePrice || 0);
             setPsa10SellPrice(latestPsa10Price || 0);
+            setSellingDestination('snkrdunk');
             if (defaultPlan) {
               setSelectedPlanId(defaultPlan.id);
               setGradingShipping(defaultPlan.price);
             } else {
               setGradingShipping(defaultGradingFee);
             }
-            setPsa10Rate(initialPsa10Rate);
           }}
           className="w-full mt-4 py-3 px-4 bg-slate-100 text-slate-800 rounded-lg font-semibold hover:bg-slate-200 transition-colors min-h-[44px]"
         >

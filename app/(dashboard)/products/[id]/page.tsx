@@ -623,10 +623,10 @@ export default async function ProductDetail({
                 latestPsa10Price={latestPsa10Price}
                 latestBasePrice={latestBasePrice}
                 mercariFeePercent={feeSettings.mercariFeePercent}
+                snkrdunkFeePercent={feeSettings.snkrdunkFeePercent}
                 defaultGradingFee={feeSettings.psaValue}
                 psaPlans={getPsaPlansFromFeeSettings(feeSettings)}
                 defaultPlanId="psaValue"
-                defaultPsa10Rate={psa10Rate ?? undefined}
               />
             </div>
           </div>
